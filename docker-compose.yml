@@ -37,6 +37,7 @@ services:
 
   hive-server:
     image: fapereira1/hive:1.0.0
+    hostname: hive
     container_name: hive-server
     env_file:
       - ./hadoop-hive.env
@@ -53,6 +54,7 @@ services:
         
   hive-metastore:
     image: fapereira1/hive:1.0.0
+    hostname: metastore
     container_name: hive-metastore
     env_file:
       - ./hadoop-hive.env
@@ -108,6 +110,40 @@ services:
     networks:
       hadoopnet:
         ipv4_address: 172.27.1.11
+  
+  hue:
+    image: gethue/hue:20191107-135001
+    hostname: hue
+    container_name: hue
+    dns: 8.8.8.8
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./hue-overrides.ini:/usr/share/hue/desktop/conf/z-hue.ini
+    depends_on:
+      - "database"
+    networks:
+      hadoopnet:
+        ipv4_address: 172.27.1.13
+  
+  database:
+    image: mysql:5.7
+    container_name: database
+    ports:
+      - "33061:3306"
+    command: --init-file /data/application/init.sql
+    volumes:
+      - /tmp/mysql/data:/var/lib/mysql
+      - ./init.sql:/data/application/init.sql
+    environment:
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: hue
+      MYSQL_USER: root
+      MYSQL_PASSWORD: secret
+    networks:
+      hadoopnet:
+        ipv4_address: 172.27.1.14
 
 networks:
   hadoopnet:

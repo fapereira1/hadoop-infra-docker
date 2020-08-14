@@ -43,7 +43,6 @@ RUN cp hadoop-3.2.1/share/hadoop/hdfs/lib/guava-27.0-jre.jar /opt/hive/lib/
 
 EXPOSE 10000
 EXPOSE 10002
-EXPOSE 9083
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD startup.sh

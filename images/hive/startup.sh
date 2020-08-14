@@ -5,4 +5,7 @@ hadoop fs -chmod g+w   /tmp
 hadoop fs -chmod g+w   /user/hive/warehouse
 
 cd $HIVE_HOME/bin
+echo "#############################"
+echo "Starting HIVE"
+echo "#############################"
 ./hiveserver2 --hiveconf hive.server2.enable.doAs=false
