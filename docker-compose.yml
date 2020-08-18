@@ -29,7 +29,7 @@ services:
     env_file:
       - ./bigdata-cluster.env
     ports:
-      - 50070:50070
+      - 8030:50070
       - 8020:8020
 
   hadoop-datanode1:
