@@ -1,153 +1,211 @@
-version: '3'
+version: '3.4'
 
 services:
-
-  namenode:
-    image: fapereira1/hadoop-namenode:1.0.0
-    container_name: namenode
+  postgres:
+    image: fapereira1/hive-postgres:0.0.1
+    container_name: postgres
+    hostname: postgres.bigdatacluster
     volumes:
-      - /tmp/hdfs/namenode:/hadoop/dfs/name
-    environment:
-      - CLUSTER_NAME=test
-    env_file:
-      - ./hadoop-hive.env
-    ports:
-      - "9870:9870"
+      - postgres_pgdata:/var/lib/postgresql/data/pgdata
     networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.5
+      bigdatacluster:
+        aliases:
+           - postgres.bigdatacluster.com
+    ports:
+      - 5432:5432
 
-  datanode:
-    image: fapereira1/hadoop-datanode:1.0.0
-    container_name: datanode
+  hadoop-namenode:
+    image: fapereira1/hadoop-namenode:0.0.1
+    container_name: hadoop-namenode
+    hostname: hadoop-namenode.bigdatacluster
     volumes:
-      - /tmp/hdfs/datanode:/hadoop/dfs/data
-      - ./bank:/bank
-    env_file:
-      - ./hadoop-hive.env
+      - hadoop_namenode:/hadoop/dfs/name
+    networks:
+      bigdatacluster:
+        aliases:
+          - namenode.bigdatacluster.com
     environment:
-      SERVICE_PRECONDITION: "namenode:9870"
+      - CLUSTER_NAME=bigdatacluster
+    env_file:
+      - ./bigdata-cluster.env
+    ports:
+      - 50070:50070
+      - 8020:8020
+
+  hadoop-datanode1:
+    image: fapereira1/hadoop-datanode:0.0.1
+    container_name: hadoop-datanode1
+    hostname: hadoop-datanode1.bigdatacluster
     depends_on:
-      - namenode
-    ports:
-      - "9864:9864"
+      - hadoop-namenode
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+      - ./bank:/bank
     networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.6
+      bigdatacluster:
+        aliases:
+          - datanode1.bigdatacluster.com
+    env_file:
+      - ./bigdata-cluster.env
+
+  hadoop-datanode2:
+    image: fapereira1/hadoop-datanode:0.0.1
+    container_name: hadoop-datanode2
+    hostname: hadoop-datanode2.bigdatacluster
+    depends_on:
+      - hadoop-namenode
+    volumes:
+      - hadoop_datanode2:/hadoop/dfs/data
+    networks:
+      bigdatacluster:
+        aliases:
+          - datanode2.bigdatacluster.com
+    env_file:
+      - ./bigdata-cluster.env
+  
+  yarn-resourcemanager:
+    image: fapereira1/hadoop-resourcemanager:0.0.1
+    container_name: yarn-resourcemanager
+    hostname: yarn-resourcemanager.bigdatacluster
+    networks:
+      bigdatacluster:
+        aliases:
+          - resourcemanager.bigdatacluster.com
+    depends_on:
+      - hadoop-namenode
+    env_file:
+      - ./bigdata-cluster.env
+    ports:
+      - 8088:8088
+
+  yarn-historyserver:
+    image: fapereira1/hadoop-historyserver:0.0.1
+    container_name: yarn-historyserver
+    hostname: yarn-historyserver.bigdatacluster
+    depends_on:
+      - yarn-resourcemanager
+    volumes:
+      - hadoop_historyserver:/hadoop/yarn/timeline
+    networks:
+      bigdatacluster:
+        aliases:
+          - historyserver.bigdatacluster.com
+    env_file:
+      - ./bigdata-cluster.env
+    ports:
+      - 8188:8188
+  
+  yarn-nodemanager1:
+    image: fapereira1/hadoop-nodemanager:0.0.1
+    container_name: yarn-nodemanager1
+    hostname: yarn-nodemanager1.bigdatacluster
+    networks:
+      bigdatacluster:
+        aliases:
+          - nodemanager1.bigdatacluster.com
+    depends_on:
+      - yarn-resourcemanager
+    env_file:
+      - ./bigdata-cluster.env
+    ports:
+      - 8042:8042
+
+  hive-metastore:
+    image: fapereira1/hive-metastore:0.0.1
+    container_name: hive-metastore
+    hostname: hive-metastore.bigdatacluster
+    networks:
+      bigdatacluster:
+        aliases:
+          - hivemetastore.bigdatacluster.com
+    depends_on:
+      - postgres
+    env_file:
+      - ./bigdata-cluster.env
+    command: /opt/hive/bin/hive --service metastore
 
   hive-server:
-    image: fapereira1/hive:1.0.0
-    hostname: hive
+    image: fapereira1/hive-server:0.0.1
     container_name: hive-server
-    env_file:
-      - ./hadoop-hive.env
-    environment:
-      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
-      SERVICE_PRECONDITION: "hive-metastore:9083"
-    ports:
-      - "10000:10000"
-    depends_on:
-      - hive-metastore
+    hostname: hive-server.bigdatacluster 
     networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.7
-        
-  hive-metastore:
-    image: fapereira1/hive:1.0.0
-    hostname: metastore
-    container_name: hive-metastore
-    env_file:
-      - ./hadoop-hive.env
-    command: /opt/hive/bin/hive --service metastore
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870 datanode:9864 hive-metastore-postgresql:5432"
-    ports:
-      - "9083:9083"
+      bigdatacluster:
+        aliases:
+          - hiveserver.bigdatacluster.com
     depends_on:
-      - hive-metastore-postgresql
-    networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.8
+     - hive-metastore
+    env_file:
+      - ./bigdata-cluster.env
+    ports:
+      - 10002:10002
 
-  hive-metastore-postgresql:
-    image: fapereira1/hive-metastore-postgresql:1.0.0
-    container_name: hive-metastore-postgresql
-    depends_on:
-      - datanode
-    networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.9
-    
   spark-master:
-    image: fapereira1/spark-master:1.0.0
+    image: fapereira1/spark-master:0.0.1
     container_name: spark-master
+    hostname: spark-master.bigdatacluster
+    networks:
+      bigdatacluster:
+        aliases:
+          - sparkmaster.bigdatacluster.com
+    volumes:
+      - spark_master_logs:/var/log/spark-master   
+    depends_on:
+      - yarn-resourcemanager
+    env_file:
+      - ./bigdata-cluster.env
     ports:
       - 8080:8080
-      - 7077:7077
-    environment:
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-    env_file:
-      - ./hadoop-hive.env
-    networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.10
-
-  spark-worker:
-    image: fapereira1/spark-worker:1.0.0
-    container_name: spark-worker
-    depends_on:
-      - spark-master
-    environment:
-      - SPARK_MASTER=spark://spark-master:7077
-      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
-      - HIVE_CORE_CONF_javax_jdo_option_ConnectionURL=jdbc:postgresql://hive-metastore/metastore
-    depends_on:
-      - spark-master
-    ports:
-      - 8081:8081
-    env_file:
-      - ./hadoop-hive.env
-    networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.11
   
+  spark-worker1:
+    image: fapereira1/spark-worker:0.0.1
+    container_name: spark-worker1
+    hostname: spark-worker1.bigdatacluster
+    networks:
+      bigdatacluster:
+        aliases:
+          - sparkworker1.bigdatacluster.com
+    volumes:
+      - spark_worker1_logs:/var/log/spark-worker   
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=sparkmaster.bigdatacluster.com:7077
+    env_file:
+      - ./bigdata-cluster.env
+
   hue:
     image: gethue/hue:20191107-135001
-    hostname: hue
     container_name: hue
+    hostname: hue.bigdatacluster
     dns: 8.8.8.8
     ports:
       - "8888:8888"
     volumes:
       - ./hue-overrides.ini:/usr/share/hue/desktop/conf/z-hue.ini
     depends_on:
-      - "database"
+      - "postgres"
+      - "hadoop-namenode"
+      - "hadoop-datanode1"
+      - "hadoop-datanode2"
+      - "yarn-resourcemanager"
+      - "yarn-historyserver"
+      - "hive-server"
+      - "hive-metastore"
+      - "spark-master"
+      - "spark-worker1"
     networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.13
-  
-  database:
-    image: mysql:5.7
-    container_name: database
-    ports:
-      - "33061:3306"
-    command: --init-file /data/application/init.sql
-    volumes:
-      - /tmp/mysql/data:/var/lib/mysql
-      - ./init.sql:/data/application/init.sql
-    environment:
-      MYSQL_ROOT_USER: root
-      MYSQL_ROOT_PASSWORD: secret
-      MYSQL_DATABASE: hue
-      MYSQL_USER: root
-      MYSQL_PASSWORD: secret
-    networks:
-      hadoopnet:
-        ipv4_address: 172.27.1.14
+      bigdatacluster:
+        aliases:
+          - hue.bigdatacluster.com
+volumes:
+  postgres_pgdata:
+  hadoop_namenode:
+  hadoop_datanode1:
+  hadoop_datanode2:
+  hadoop_historyserver:
+  spark_master_logs:
+  spark_worker1_logs:
 
 networks:
-  hadoopnet:
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.27.0.0/16
+  bigdatacluster:
+    external: true

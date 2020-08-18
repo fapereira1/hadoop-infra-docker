@@ -1,28 +1,29 @@
-FROM alpine:3.10
+FROM fapereira1/base:0.0.1
 
-ENV ENABLE_INIT_DAEMON true
-ENV INIT_DAEMON_BASE_URI http://identifier/init-daemon
-ENV INIT_DAEMON_STEP spark_master_init
+LABEL Description="This is a base image for Spark Nodes" \
+      Author="Fabio Pereira <fapereira1@gmail.com>"
 
-ENV SPARK_VERSION=3.0.0
-ENV HADOOP_VERSION=3.2
+ENV SPARK_VERSION spark-2.4.6-bin-hadoop2.7
+ENV SPARK_URL https://downloads.apache.org/spark/spark-2.4.6/spark-2.4.6-bin-hadoop2.7.tgz
 
-COPY wait-for-step.sh /
-COPY execute-step.sh /
-COPY finish-step.sh /
+RUN set -x \
+    && curl -fSL "$SPARK_URL" -o /tmp/spark.tar.gz \
+    && tar -xvzf /tmp/spark.tar.gz -C /opt/ \
+    && rm /tmp/spark.tar.gz*
 
-RUN apk add --no-cache curl bash openjdk8-jre python3 py-pip nss libc6-compat \
-      && ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld-linux-x86-64.so.2 \
-      && chmod +x *.sh \
-      && wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
-      && tar -xvzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
-      && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} spark \
-      && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
-      && cd /
+ENV SPARK_HOME=/opt/$SPARK_VERSION
+ENV PATH $SPARK_HOME/bin:$PATH
 
-#Give permission to execute scripts
-RUN chmod +x /wait-for-step.sh && chmod +x /execute-step.sh && chmod +x /finish-step.sh
+COPY hive-site.xml $SPARK_HOME/conf/
+COPY core-site.xml $SPARK_HOME/conf/
+COPY yarn-site.xml $SPARK_HOME/conf/
 
-# Fix the value of PYTHONHASHSEED
-# Note: this is needed when you use Python 3.3 or greater
+ENV HADOOP_CONF_DIR=$SPARK_HOME/conf
+
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENV PYSPARK_PYTHON=python3.6
 ENV PYTHONHASHSEED 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

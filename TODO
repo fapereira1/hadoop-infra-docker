@@ -1,6 +1,0 @@
-- Spark 
-  - master 
-  - worker
-
-- hue (interface consulta do Hive)
-- Mysql ou Greenplum (Banco de Dados)
