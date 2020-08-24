@@ -22,6 +22,15 @@ RUN apt-get update && apt-get install -y wget procps && \
 	apt-get clean && \
 	rm -rf /var/lib/apt/lists/*
 
+ENV SPARK_VERSION spark-2.4.6-bin-hadoop2.7
+ENV SPARK_URL https://downloads.apache.org/spark/spark-2.4.6/spark-2.4.6-bin-hadoop2.7.tgz
+
+RUN set -x \
+    && curl -fSL "$SPARK_URL" -o /tmp/spark.tar.gz \
+    && tar -xvzf /tmp/spark.tar.gz -C /opt/ \
+    && rm /tmp/spark.tar.gz*
+
+ENV SPARK_HOME=/opt/$SPARK_VERSION
 
 #Custom configuration goes here
 ADD conf/hive-site.xml $HIVE_HOME/conf
@@ -31,6 +40,9 @@ ADD conf/hive-log4j2.properties $HIVE_HOME/conf
 ADD conf/llap-daemon-log4j2.properties $HIVE_HOME/conf
 ADD conf/ivysettings.xml $HIVE_HOME/conf
 ADD conf/hive-env.sh $HIVE_HOME/conf
+ADD hive/hive /opt/hive/bin/hive
+
+RUN chmod +x /opt/hive/bin/hive
 
 COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh

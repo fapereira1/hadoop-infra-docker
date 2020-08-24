@@ -1,4 +1,4 @@
-FROM fapereira1/base:0.0.1
+FROM fapereira1/hive-base:0.0.1
 
 LABEL Description="This is a base image for Spark Nodes" \
       Author="Fabio Pereira <fapereira1@gmail.com>"
